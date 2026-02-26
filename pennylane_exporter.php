@@ -217,6 +217,25 @@ function mapKeysToIds($keys, $keyToId) {
 $includeIds = mapKeysToIds($includeKeys, $keyToId);
 $excludeIds = mapKeysToIds($excludeKeys, $keyToId);
 
+// ============================================
+// RESOLVE VALID CATEGORY NAMES
+// ============================================
+
+$validIncludeKeys = [];
+foreach ($includeKeys as $key) {
+    if (isset($keyToId[$key])) {
+        $validIncludeKeys[] = $key;
+    }
+}
+
+$validExcludeKeys = [];
+foreach ($excludeKeys as $key) {
+    if (isset($keyToId[$key])) {
+        $validExcludeKeys[] = $key;
+    }
+}
+
+
 if (empty($includeIds)) {
     echo "Aucune catégorie valide à inclure.\n";
     exit(1);
@@ -268,13 +287,25 @@ foreach ($transactions as $tx) {
     $count++;
 }
 
-
 // ============================================
 // RESULT
 // ============================================
 
 echo "----------------------------------------\n";
 echo "Période : $dateFrom → $dateTo\n";
-echo "Transactions retenues : $count\n";
+
+echo "\nCatégories incluses :\n";
+foreach ($validIncludeKeys as $cat) {
+    echo "  ✅ $cat\n";
+}
+
+if (!empty($validExcludeKeys)) {
+    echo "\nCatégories exclues :\n";
+    foreach ($validExcludeKeys as $cat) {
+        echo "  ❌ $cat\n";
+    }
+}
+
+echo "\nTransactions retenues : $count\n";
 echo "Montant total : " . number_format($total, 2, '.', ' ') . " EUR\n";
 echo "----------------------------------------\n";
