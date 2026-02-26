@@ -1,0 +1,4 @@
+<?php
+
+define('API_KEY','');
+define('COMPANY_ID', 1234);
