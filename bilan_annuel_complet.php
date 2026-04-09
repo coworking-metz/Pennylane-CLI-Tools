@@ -8,6 +8,7 @@ include '_main.php';
 // ============================================================
 
 $options = getopt("", [
+    "annee::",
     "date-from::",
     "date-to::",
     "help::"
@@ -27,17 +28,25 @@ if (isset($options['help'])) {
     echo "  Génère un récapitulatif financier complet pour le bilan\n";
     echo "  annuel de l'association, toutes familles confondues.\n\n";
     echo "Paramètres:\n";
+    echo "  --annee=YYYY             (OPTIONNEL, ex: --annee=2024)\n";
     echo "  --date-from=YYYY-MM-DD   (OPTIONNEL, défaut: $defaultFrom)\n";
     echo "  --date-to=YYYY-MM-DD     (OPTIONNEL, défaut: $defaultTo)\n";
     echo "  --help                   Affiche cette aide\n\n";
-    echo "Exemple:\n";
+    echo "Exemples:\n";
     echo "  php bilan_annuel_complet.php\n";
+    echo "  php bilan_annuel_complet.php --annee=2024\n";
     echo "  php bilan_annuel_complet.php --date-from=2024-01-01 --date-to=2024-12-31\n\n";
     exit(0);
 }
 
-$dateFrom = $options['date-from'] ?? $defaultFrom;
-$dateTo   = $options['date-to']   ?? $defaultTo;
+if (isset($options['annee'])) {
+    $anneeOpt = (int)$options['annee'];
+    $dateFrom = $anneeOpt . "-01-01";
+    $dateTo   = $anneeOpt . "-12-31";
+} else {
+    $dateFrom = $options['date-from'] ?? $defaultFrom;
+    $dateTo   = $options['date-to']   ?? $defaultTo;
+}
 
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom) ||
     !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
