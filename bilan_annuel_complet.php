@@ -575,6 +575,18 @@ foreach ($resultats as $r) {
                 </tr>";
 }
 
+// Investissements
+$investTotal = 0.0;
+$investCount = 0;
+foreach ($resultats as $r) {
+    if ($r['key'] === 'Famille.Investissements') {
+        $investTotal = $r['total'];
+        $investCount = $r['count'];
+        break;
+    }
+}
+$investFormate = number_format($investTotal, 2, ',', ' ') . ' €';
+
 $totalRecettesFormate = number_format($totalRecettes, 2, ',', ' ') . ' €';
 $totalDepensesFormate = number_format($totalDepenses, 2, ',', ' ') . ' €';
 $soldeFormate2        = number_format($solde, 2, ',', ' ') . ' €';
@@ -607,8 +619,9 @@ $html = <<<HTML
         .kpi-card.depenses  { border-color: #f14668; }
         .kpi-card.solde-pos { border-color: #48c78e; }
         .kpi-card.solde-neg { border-color: #f14668; }
-        .kpi-card.charges   { border-color: #3e8ed0; }
-        .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1.2; }
+        .kpi-card.charges        { border-color: #3e8ed0; }
+        .kpi-card.investissements { border-color: #7a5af8; }
+        .kpi-value { font-size: 1.4rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
         .section-title { border-left: 4px solid #3e8ed0; padding-left: 0.75rem; margin-bottom: 1rem; }
         .table th { background: #f0f4f8; }
         .footer-note { color: #888; font-size: 0.85rem; }
@@ -668,6 +681,14 @@ $html = <<<HTML
                 <p class="heading has-text-grey">Charges fixes / mois</p>
                 <p class="kpi-value has-text-info">{$chargesFormate}</p>
                 <p class="has-text-grey is-size-7 mt-1">Hors investissements</p>
+            </div>
+        </div>
+
+        <div class="column is-3">
+            <div class="box kpi-card investissements">
+                <p class="heading has-text-grey">Investissements</p>
+                <p class="kpi-value" style="color: #7a5af8;">{$investFormate}</p>
+                <p class="has-text-grey is-size-7 mt-1">{$investCount} transactions</p>
             </div>
         </div>
 
