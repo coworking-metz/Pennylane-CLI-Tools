@@ -28,7 +28,7 @@ if (isset($options['help'])) {
     echo "  Génère un récapitulatif financier complet pour le bilan\n";
     echo "  annuel de l'association, toutes familles confondues.\n\n";
     echo "Paramètres:\n";
-    echo "  --annee=YYYY             (OPTIONNEL, ex: --annee=2024)\n";
+    echo "  --annee=YYYY|current     (OPTIONNEL, ex: --annee=2024 ou --annee=current)\n";
     echo "  --date-from=YYYY-MM-DD   (OPTIONNEL, défaut: $defaultFrom)\n";
     echo "  --date-to=YYYY-MM-DD     (OPTIONNEL, défaut: $defaultTo)\n";
     echo "  --help                   Affiche cette aide\n\n";
@@ -40,7 +40,7 @@ if (isset($options['help'])) {
 }
 
 if (isset($options['annee'])) {
-    $anneeOpt = (int)$options['annee'];
+    $anneeOpt = ($options['annee'] === 'current') ? $currentYear : (int)$options['annee'];
     $dateFrom = $anneeOpt . "-01-01";
     $dateTo   = $anneeOpt . "-12-31";
 } else {
@@ -587,6 +587,20 @@ foreach ($resultats as $r) {
 }
 $investFormate = number_format($investTotal, 2, ',', ' ') . ' €';
 
+// Données JSON pour le graphique récap recettes/dépenses/solde
+$recDepLabels     = json_encode(['Recettes', 'Dépenses', 'Solde']);
+$recDepData       = json_encode([round($totalRecettes, 2), round(abs($totalDepenses), 2), round($solde, 2)]);
+$recDepColors     = json_encode([
+    'rgba(72, 199, 142, 0.85)',
+    'rgba(241, 70, 104, 0.85)',
+    $solde >= 0 ? 'rgba(72, 199, 142, 0.85)' : 'rgba(241, 70, 104, 0.85)',
+]);
+$recDepBorders    = json_encode([
+    '#48c78e',
+    '#f14668',
+    $solde >= 0 ? '#48c78e' : '#f14668',
+]);
+
 // Données JSON pour Chart.js
 $chartMonthLabels    = json_encode(array_keys($monthlyData));
 $chartMonthOp        = json_encode(array_map(fn($v) => round($v['operationnel'], 2), array_values($monthlyData)));
@@ -702,6 +716,12 @@ $html = <<<HTML
             </div>
         </div>
 
+    </div>
+
+    <!-- Graphique Recettes / Dépenses / Solde -->
+    <div class="box mb-5">
+        <h2 class="title is-5 section-title">Recettes · Dépenses · Solde</h2>
+        <canvas id="chart-recap" height="80"></canvas>
     </div>
 
     <!-- Taux de couverture -->
@@ -897,6 +917,46 @@ $html = <<<HTML
             }
         });
     }
+
+    // Graphique récap recettes / dépenses / solde
+    new Chart(document.getElementById('chart-recap'), {
+        type: 'bar',
+        data: {
+            labels: {$recDepLabels},
+            datasets: [{
+                data: {$recDepData},
+                backgroundColor: {$recDepColors},
+                borderColor: {$recDepBorders},
+                borderWidth: 1,
+                borderRadius: 6,
+                barPercentage: 0.5,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return ctx.parsed.y.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(v) {
+                            return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            }
+        }
+    });
 
     var chartMois = makeChart(
         'chart-mois',
