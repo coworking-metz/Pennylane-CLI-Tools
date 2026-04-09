@@ -671,7 +671,7 @@ $html = <<<HTML
     </div>
 </section>
 
-<div class="container pt-4 pb-2">
+<div class="container pt-4 pb-4">
     <nav class="breadcrumb" aria-label="breadcrumbs">
         <ul>
             <li><a href="index.php">Bilans financiers</a></li>
