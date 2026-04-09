@@ -587,6 +587,15 @@ foreach ($resultats as $r) {
 }
 $investFormate = number_format($investTotal, 2, ',', ' ') . ' €';
 
+// Données JSON pour Chart.js
+$chartMonthLabels    = json_encode(array_keys($monthlyData));
+$chartMonthOp        = json_encode(array_map(fn($v) => round($v['operationnel'], 2), array_values($monthlyData)));
+$chartMonthEx        = json_encode(array_map(fn($v) => round($v['exceptionnel'], 2), array_values($monthlyData)));
+
+$chartQuarterLabels  = json_encode(array_keys($quarterlyData));
+$chartQuarterOp      = json_encode(array_map(fn($v) => round($v['operationnel'], 2), array_values($quarterlyData)));
+$chartQuarterEx      = json_encode(array_map(fn($v) => round($v['exceptionnel'], 2), array_values($quarterlyData)));
+
 $totalRecettesFormate = number_format($totalRecettes, 2, ',', ' ') . ' €';
 $totalDepensesFormate = number_format($totalDepenses, 2, ',', ' ') . ' €';
 $soldeFormate2        = number_format($solde, 2, ',', ' ') . ' €';
@@ -611,6 +620,7 @@ $html = <<<HTML
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bilan {$annee} — Le Poulailler Coworking Metz</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
         body { background: #f5f7fa; }
         .hero { background: #f2af10; }
@@ -650,9 +660,9 @@ $html = <<<HTML
 <div class="container pb-6">
 
     <!-- KPI row -->
-    <div class="columns is-multiline mb-5">
+    <div class="columns mb-5">
 
-        <div class="column is-3">
+        <div class="column">
             <div class="box kpi-card recettes">
                 <p class="heading has-text-grey">Recettes totales</p>
                 <p class="kpi-value has-text-success">{$totalRecettesFormate}</p>
@@ -660,7 +670,7 @@ $html = <<<HTML
             </div>
         </div>
 
-        <div class="column is-3">
+        <div class="column">
             <div class="box kpi-card depenses">
                 <p class="heading has-text-grey">Dépenses totales</p>
                 <p class="kpi-value has-text-danger">{$totalDepensesFormate}</p>
@@ -668,7 +678,7 @@ $html = <<<HTML
             </div>
         </div>
 
-        <div class="column is-3">
+        <div class="column">
             <div class="box kpi-card {$soldeBgClass}">
                 <p class="heading has-text-grey">Solde net</p>
                 <p class="kpi-value {$soldeTextClass}">{$soldeIcon} {$soldeFormate2}</p>
@@ -676,7 +686,7 @@ $html = <<<HTML
             </div>
         </div>
 
-        <div class="column is-3">
+        <div class="column">
             <div class="box kpi-card charges">
                 <p class="heading has-text-grey">Charges fixes / mois</p>
                 <p class="kpi-value has-text-info">{$chargesFormate}</p>
@@ -684,7 +694,7 @@ $html = <<<HTML
             </div>
         </div>
 
-        <div class="column is-3">
+        <div class="column">
             <div class="box kpi-card investissements">
                 <p class="heading has-text-grey">Investissements</p>
                 <p class="kpi-value" style="color: #7a5af8;">{$investFormate}</p>
@@ -796,6 +806,7 @@ $html = <<<HTML
         </div>
 
         <div id="tab-mois">
+            <canvas id="chart-mois" height="90" class="mb-4"></canvas>
             <table class="table is-fullwidth is-striped is-hoverable">
                 <thead>
                     <tr>
@@ -812,6 +823,7 @@ $html = <<<HTML
         </div>
 
         <div id="tab-trimestre" style="display:none;">
+            <canvas id="chart-trimestre" height="90" class="mb-4"></canvas>
             <table class="table is-fullwidth is-striped is-hoverable">
                 <thead>
                     <tr>
@@ -835,6 +847,66 @@ $html = <<<HTML
 </div>
 
 <script>
+    function makeChart(id, labels, opData, exData) {
+        return new Chart(document.getElementById(id), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Opérationnel',
+                        data: opData,
+                        backgroundColor: 'rgba(62, 142, 208, 0.75)',
+                        borderColor: '#3e8ed0',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'Exceptionnel',
+                        data: exData,
+                        backgroundColor: 'rgba(255, 224, 138, 0.85)',
+                        borderColor: '#e8a400',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.label + ' : ' + ctx.parsed.y.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(v) {
+                                return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    var chartMois = makeChart(
+        'chart-mois',
+        {$chartMonthLabels},
+        {$chartMonthOp},
+        {$chartMonthEx}
+    );
+
+    var chartTrimestre = null;
+
     document.querySelectorAll('.tabs li[data-tab]').forEach(function(tab) {
         tab.addEventListener('click', function() {
             var target = this.dataset.tab;
@@ -844,6 +916,16 @@ $html = <<<HTML
             this.classList.add('is-active');
             document.getElementById('tab-mois').style.display      = (target === 'mois')      ? '' : 'none';
             document.getElementById('tab-trimestre').style.display = (target === 'trimestre') ? '' : 'none';
+
+            // Initialise le graphique trimestriel au premier clic (canvas invisible sinon)
+            if (target === 'trimestre' && !chartTrimestre) {
+                chartTrimestre = makeChart(
+                    'chart-trimestre',
+                    {$chartQuarterLabels},
+                    {$chartQuarterOp},
+                    {$chartQuarterEx}
+                );
+            }
         });
     });
 </script>

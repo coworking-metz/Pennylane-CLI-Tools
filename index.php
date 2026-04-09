@@ -36,8 +36,12 @@
 <?php
 $files = glob('bilan_*.html');
 
-// Tri décroissant (année la plus récente en premier)
-rsort($files);
+// Tri décroissant par année
+usort($files, function($a, $b) {
+    preg_match('/bilan_(\d{4})\.html/', $a, $ma);
+    preg_match('/bilan_(\d{4})\.html/', $b, $mb);
+    return (int)($mb[1] ?? 0) - (int)($ma[1] ?? 0);
+});
 
 if (empty($files)):
 ?>
