@@ -486,3 +486,341 @@ foreach ($monthlyData as $month => $values) {
 }
 
 echo str_repeat("=", $monthWidth + ($colWidth * 2) + 6) . "\n";
+
+// ============================================================
+// GÉNÉRATION HTML
+// ============================================================
+
+$annee = substr($dateFrom, 0, 4);
+$htmlFile = "bilan_{$annee}.html";
+
+// Calcul taux de couverture (recettes / |dépenses|)
+$tauxCouverture = ($totalDepenses != 0)
+    ? round(($totalRecettes / abs($totalDepenses)) * 100, 1)
+    : 0;
+
+// Prépare les lignes du tableau mensuel
+$monthlyRowsHtml = '';
+foreach ($monthlyData as $month => $values) {
+    $op    = number_format($values['operationnel'], 2, ',', ' ') . ' €';
+    $ex    = number_format($values['exceptionnel'], 2, ',', ' ') . ' €';
+    $total = number_format($values['operationnel'] + $values['exceptionnel'], 2, ',', ' ') . ' €';
+    $monthlyRowsHtml .= "
+                <tr>
+                    <td><strong>{$month}</strong></td>
+                    <td class=\"has-text-right\">{$op}</td>
+                    <td class=\"has-text-right\">{$ex}</td>
+                    <td class=\"has-text-right\"><strong>{$total}</strong></td>
+                </tr>";
+}
+
+// Agrégation trimestrielle
+$quarterlyData = [];
+foreach ($monthlyData as $month => $values) {
+    [$y, $m] = explode('-', $month);
+    $q = 'Q' . ceil((int)$m / 3) . ' ' . $y;
+    if (!isset($quarterlyData[$q])) {
+        $quarterlyData[$q] = ['operationnel' => 0.0, 'exceptionnel' => 0.0];
+    }
+    $quarterlyData[$q]['operationnel'] += $values['operationnel'];
+    $quarterlyData[$q]['exceptionnel'] += $values['exceptionnel'];
+}
+
+$quarterlyRowsHtml = '';
+foreach ($quarterlyData as $quarter => $values) {
+    $op    = number_format($values['operationnel'], 2, ',', ' ') . ' €';
+    $ex    = number_format($values['exceptionnel'], 2, ',', ' ') . ' €';
+    $total = number_format($values['operationnel'] + $values['exceptionnel'], 2, ',', ' ') . ' €';
+    $quarterlyRowsHtml .= "
+                <tr>
+                    <td><strong>{$quarter}</strong></td>
+                    <td class=\"has-text-right\">{$op}</td>
+                    <td class=\"has-text-right\">{$ex}</td>
+                    <td class=\"has-text-right\"><strong>{$total}</strong></td>
+                </tr>";
+}
+
+// Lignes recettes
+$recettesRowsHtml = '';
+foreach ($resultats as $r) {
+    if ($r['type'] !== 'recette') continue;
+    $montant = number_format($r['total'], 2, ',', ' ') . ' €';
+    $recettesRowsHtml .= "
+                <tr>
+                    <td>{$r['label']}</td>
+                    <td class=\"has-text-right\"><span class=\"tag is-success is-light\">{$montant}</span></td>
+                    <td class=\"has-text-right has-text-grey\">{$r['count']} tx</td>
+                </tr>";
+}
+
+// Lignes dépenses
+$depensesRowsHtml = '';
+foreach ($resultats as $r) {
+    if ($r['type'] !== 'depense') continue;
+    $montant = number_format($r['total'], 2, ',', ' ') . ' €';
+    $depensesRowsHtml .= "
+                <tr>
+                    <td>{$r['label']}</td>
+                    <td class=\"has-text-right\"><span class=\"tag is-danger is-light\">{$montant}</span></td>
+                    <td class=\"has-text-right has-text-grey\">{$r['count']} tx</td>
+                </tr>";
+}
+
+$totalRecettesFormate = number_format($totalRecettes, 2, ',', ' ') . ' €';
+$totalDepensesFormate = number_format($totalDepenses, 2, ',', ' ') . ' €';
+$soldeFormate2        = number_format($solde, 2, ',', ' ') . ' €';
+$chargesFormate       = number_format($chargesFixesMensuelles, 2, ',', ' ') . ' €';
+$moyOpFormate         = number_format($moyOp, 2, ',', ' ') . ' €';
+$moyExFormate         = number_format($moyEx, 2, ',', ' ') . ' €';
+$moyTotalFormate      = number_format($moyTotal, 2, ',', ' ') . ' €';
+
+$soldeBgClass   = $solde >= 0 ? 'solde-pos' : 'solde-neg';
+$soldeTextClass = $solde >= 0 ? 'has-text-success' : 'has-text-danger';
+$soldeIcon      = $solde >= 0 ? '▲' : '▼';
+$tauxClass      = $tauxCouverture >= 100 ? 'is-success' : ($tauxCouverture >= 80 ? 'is-warning' : 'is-danger');
+$tauxBarColor   = $tauxCouverture >= 100 ? '#48c78e' : ($tauxCouverture >= 80 ? '#ffe08a' : '#f14668');
+$tauxBarWidth   = min($tauxCouverture, 100);
+$generatedAt    = date('d/m/Y à H:i');
+
+$html = <<<HTML
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bilan {$annee} — Le Poulailler Coworking Metz</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+    <style>
+        body { background: #f5f7fa; }
+        .hero { background: #f2af10; }
+        .kpi-card { border-top: 4px solid; }
+        .kpi-card.recettes  { border-color: #48c78e; }
+        .kpi-card.depenses  { border-color: #f14668; }
+        .kpi-card.solde-pos { border-color: #48c78e; }
+        .kpi-card.solde-neg { border-color: #f14668; }
+        .kpi-card.charges   { border-color: #3e8ed0; }
+        .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1.2; }
+        .section-title { border-left: 4px solid #3e8ed0; padding-left: 0.75rem; margin-bottom: 1rem; }
+        .table th { background: #f0f4f8; }
+        .footer-note { color: #888; font-size: 0.85rem; }
+        .taux-bar-wrap { background: #e8e8e8; border-radius: 999px; height: 10px; margin-top: 0.5rem; }
+        .taux-bar { height: 10px; border-radius: 999px; }
+    </style>
+</head>
+<body>
+
+<section class="hero mb-6">
+    <div class="hero-body">
+        <div class="container">
+            <div class="is-flex is-align-items-center is-flex-wrap-wrap" style="gap: 1.25rem;">
+                <img src="https://www.coworking-metz.fr/wp-content/uploads/2020/05/logo-Le-Poulailler-vecto-blanc-inverse%CC%81-horizontal-300.png"
+                     alt="Le Poulailler Coworking Metz"
+                     style="height: 44px; width: auto; display: block; flex-shrink: 0; max-width: 100%;">
+                <div>
+                    <p class="title is-2 is-4-mobile mb-1" style="color: #fff;">Bilan financier {$annee}</p>
+                    <p class="subtitle is-6-mobile" style="color: rgba(255,255,255,0.85);">Période : {$dateFrom} → {$dateTo}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container pb-6">
+
+    <!-- KPI row -->
+    <div class="columns is-multiline mb-5">
+
+        <div class="column is-3">
+            <div class="box kpi-card recettes">
+                <p class="heading has-text-grey">Recettes totales</p>
+                <p class="kpi-value has-text-success">{$totalRecettesFormate}</p>
+                <p class="has-text-grey is-size-7 mt-1">{$nbrRecettes} transactions</p>
+            </div>
+        </div>
+
+        <div class="column is-3">
+            <div class="box kpi-card depenses">
+                <p class="heading has-text-grey">Dépenses totales</p>
+                <p class="kpi-value has-text-danger">{$totalDepensesFormate}</p>
+                <p class="has-text-grey is-size-7 mt-1">{$nbrDepenses} transactions</p>
+            </div>
+        </div>
+
+        <div class="column is-3">
+            <div class="box kpi-card {$soldeBgClass}">
+                <p class="heading has-text-grey">Solde net</p>
+                <p class="kpi-value {$soldeTextClass}">{$soldeIcon} {$soldeFormate2}</p>
+                <p class="has-text-grey is-size-7 mt-1">Recettes + Dépenses</p>
+            </div>
+        </div>
+
+        <div class="column is-3">
+            <div class="box kpi-card charges">
+                <p class="heading has-text-grey">Charges fixes / mois</p>
+                <p class="kpi-value has-text-info">{$chargesFormate}</p>
+                <p class="has-text-grey is-size-7 mt-1">Hors investissements</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Taux de couverture -->
+    <div class="box mb-5">
+        <p class="heading has-text-grey">Taux de couverture des dépenses par les recettes</p>
+        <p class="is-size-4 has-text-weight-bold">
+            <span class="tag {$tauxClass} is-medium">{$tauxCouverture} %</span>
+        </p>
+        <div class="taux-bar-wrap mt-2">
+            <div class="taux-bar" style="width: {$tauxBarWidth}%; background: {$tauxBarColor};"></div>
+        </div>
+        <p class="is-size-7 has-text-grey mt-3">
+            Indique dans quelle mesure les recettes suffisent à couvrir les dépenses sur la période.
+            Un taux de <strong>100 %</strong> signifie l'équilibre exact. En dessous, l'association a dépensé plus qu'elle n'a encaissé ; au-dessus, elle a dégagé un excédent.
+        </p>
+    </div>
+
+    <!-- Recettes et Dépenses côte à côte -->
+    <div class="columns mb-5">
+
+        <div class="column">
+            <div class="box">
+                <h2 class="title is-5 section-title has-text-success">Recettes</h2>
+                <table class="table is-fullwidth is-hoverable">
+                    <thead>
+                        <tr>
+                            <th>Famille</th>
+                            <th class="has-text-right">Montant</th>
+                            <th class="has-text-right">Nb</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {$recettesRowsHtml}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>Total recettes</th>
+                            <th class="has-text-right has-text-success">{$totalRecettesFormate}</th>
+                            <th class="has-text-right has-text-grey">{$nbrRecettes} tx</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="column">
+            <div class="box">
+                <h2 class="title is-5 section-title has-text-danger">Dépenses</h2>
+                <table class="table is-fullwidth is-hoverable">
+                    <thead>
+                        <tr>
+                            <th>Famille</th>
+                            <th class="has-text-right">Montant</th>
+                            <th class="has-text-right">Nb</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {$depensesRowsHtml}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>Total dépenses</th>
+                            <th class="has-text-right has-text-danger">{$totalDepensesFormate}</th>
+                            <th class="has-text-right has-text-grey">{$nbrDepenses} tx</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Revenus réels -->
+    <div class="box mb-5">
+        <h2 class="title is-5 section-title">Revenus réels</h2>
+        <div class="columns is-multiline mb-4">
+            <div class="column is-4">
+                <div class="notification is-info is-light py-3">
+                    <p class="heading">Moy. revenu opérationnel</p>
+                    <p class="is-size-5 has-text-weight-bold">{$moyOpFormate} / mois</p>
+                </div>
+            </div>
+            <div class="column is-4">
+                <div class="notification is-warning is-light py-3">
+                    <p class="heading">Moy. revenu exceptionnel</p>
+                    <p class="is-size-5 has-text-weight-bold">{$moyExFormate} / mois</p>
+                </div>
+            </div>
+            <div class="column is-4">
+                <div class="notification is-success is-light py-3">
+                    <p class="heading">Moy. revenu total</p>
+                    <p class="is-size-5 has-text-weight-bold">{$moyTotalFormate} / mois</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <ul>
+                <li class="is-active" data-tab="mois"><a>Par mois</a></li>
+                <li data-tab="trimestre"><a>Par trimestre</a></li>
+            </ul>
+        </div>
+
+        <div id="tab-mois">
+            <table class="table is-fullwidth is-striped is-hoverable">
+                <thead>
+                    <tr>
+                        <th>Mois</th>
+                        <th class="has-text-right">Opérationnel</th>
+                        <th class="has-text-right">Exceptionnel</th>
+                        <th class="has-text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {$monthlyRowsHtml}
+                </tbody>
+            </table>
+        </div>
+
+        <div id="tab-trimestre" style="display:none;">
+            <table class="table is-fullwidth is-striped is-hoverable">
+                <thead>
+                    <tr>
+                        <th>Trimestre</th>
+                        <th class="has-text-right">Opérationnel</th>
+                        <th class="has-text-right">Exceptionnel</th>
+                        <th class="has-text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {$quarterlyRowsHtml}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <p class="footer-note has-text-centered">
+        Généré le {$generatedAt} &nbsp;·&nbsp; Source : Pennylane API &nbsp;·&nbsp; Le Poulailler Coworking Metz
+    </p>
+
+</div>
+
+<script>
+    document.querySelectorAll('.tabs li[data-tab]').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var target = this.dataset.tab;
+            document.querySelectorAll('.tabs li[data-tab]').forEach(function(t) {
+                t.classList.remove('is-active');
+            });
+            this.classList.add('is-active');
+            document.getElementById('tab-mois').style.display      = (target === 'mois')      ? '' : 'none';
+            document.getElementById('tab-trimestre').style.display = (target === 'trimestre') ? '' : 'none';
+        });
+    });
+</script>
+
+</body>
+</html>
+HTML;
+
+file_put_contents($htmlFile, $html);
+echo "\n✅ Fichier HTML généré : {$htmlFile}\n";
