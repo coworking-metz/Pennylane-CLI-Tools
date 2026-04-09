@@ -671,6 +671,15 @@ $html = <<<HTML
     </div>
 </section>
 
+<div class="container pt-4 pb-2">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="index.php">Bilans financiers</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Bilan {$annee}</a></li>
+        </ul>
+    </nav>
+</div>
+
 <div class="container pb-6">
 
     <!-- KPI row -->
